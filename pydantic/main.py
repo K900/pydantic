@@ -3,6 +3,7 @@ Logic for creating models.
 """
 from __future__ import annotations as _annotations
 
+import enum
 import types
 import typing
 import warnings
@@ -1121,6 +1122,13 @@ class BaseModel(metaclass=_model_construction.ModelMetaclass):
 RootModelRootType = typing.TypeVar('RootModelRootType')
 
 
+class _RootModelSpecialValues(enum.Enum):
+    no_value = enum.auto()
+
+
+_RootModelNoValue = _RootModelSpecialValues.no_value
+
+
 class RootModel(BaseModel, typing.Generic[RootModelRootType]):
     """
     A Pydantic `BaseModel` for the root object of the model.
@@ -1138,8 +1146,16 @@ class RootModel(BaseModel, typing.Generic[RootModelRootType]):
 
     root: RootModelRootType
 
-    def __init__(__pydantic_self__, root: RootModelRootType) -> None:  # type: ignore
+    def __init__(
+        __pydantic_self__, root: RootModelRootType | typing_extensions.Literal[_RootModelNoValue] = _RootModelNoValue
+    ) -> None:  # type: ignore
         __tracebackhide__ = True
+        if root is _RootModelNoValue:
+            root_field = __pydantic_self__.model_fields['root']
+            root = root_field.get_default(call_default_factory=True)
+            if not (__pydantic_self__.model_config.get('validate_default', False) or root_field.validate_default):
+                _object_setattr(__pydantic_self__, '__dict__', {'root': root})
+                return
         __pydantic_self__.__pydantic_validator__.validate_python(root, self_instance=__pydantic_self__)
 
     __init__.__pydantic_base_init__ = True  # type: ignore
